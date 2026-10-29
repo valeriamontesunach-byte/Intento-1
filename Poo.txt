@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prado de Girasoles</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      overflow: hidden;
+      background-color: #020204;
+    }
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+
+<script>
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  let width, height;
+  function resize() {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // --- LUCIÉRNAGAS ---
+  class Firefly {
+    constructor() {
+      this.reset();
+    }
+
+    reset() {
+      this.x = Math.random() * width;
+      this.y = Math.random() * height;
+      this.size = Math.random() * 2 + 1;
+      this.speedX = (Math.random() - 0.5) * 0.5;
+      this.speedY = (Math.random() - 0.5) * 0.5;
+      this.alpha = Math.random();
+      this.alphaSpeed = Math.random() * 0.02 + 0.005;
+    }
+
+    update() {
+      this.x += this.speedX;
+      this.y += this.speedY;
+      this.alpha += this.alphaSpeed;
+
+      if (this.alpha >= 1 || this.alpha <= 0.1) {
+        this.alphaSpeed = -this.alphaSpeed;
+      }
+
+      if (this.x < 0 || this.x > width || this.y < 0 || this.y > height) {
+        this.reset();
+      }
+    }
+
+    draw() {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255, 230, 120, ${this.alpha})`;
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = "rgba(255, 220, 100, 0.9)";
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  // --- GIRASOLES Y FLORES ---
+  class Sunflower {
+    constructor(xRatio, targetYRatio, delay, sizeMult = 1, isBackground = false) {
+      this.xRatio = xRatio;
+      this.targetYRatio = targetYRatio;
+      this.delay = delay;
+      this.sizeMult = sizeMult;
+      this.isBackground = isBackground;
+      this.progress = 0;
+      this.flowerProgress = 0;
+      this.curve = (Math.random() - 0.5) * 1.8;
+      this.numPetals = 26 + Math.floor(Math.random() * 8);
+    }
+
+    update() {
+      if (this.delay > 0) {
+        this.delay--;
+        return;
+      }
+      if (this.progress < 1) {
+        this.progress += 0.004;
+      } else if (this.flowerProgress < 1) {
+        this.flowerProgress += 0.008;
+      }
+    }
+
+    draw() {
+      if (this.progress === 0 && this.delay > 0) return;
+
+      const x = width * this.xRatio;
+      const targetY = height * this.targetYRatio;
+      const currentHeight = (height - targetY) * this.progress;
+      const headX = x + Math.sin(this.progress * Math.PI) * (20 * this.curve);
+      const headY = height - currentHeight;
+
+      // Tallo
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(x, height);
+      ctx.quadraticCurveTo(
+        x + (25 * this.curve),
+        height - (currentHeight * 0.5),
+        headX,
+        headY
+      );
+      ctx.strokeStyle = this.isBackground ? "#122406" : "#1a3309";
+      ctx.lineWidth = 12 * this.sizeMult;
+      ctx.lineCap = "round";
+      ctx.stroke();
+
+      ctx.strokeStyle = this.isBackground ? "#25470c" : "#386b12";
+      ctx.lineWidth = 5 * this.sizeMult;
+      ctx.stroke();
+      ctx.restore();
+
+      // Hojas
+      if (this.progress > 0.3) this.drawLeaf(x, height - (currentHeight * 0.3), true);
+      if (this.progress > 0.6) this.drawLeaf(x, height - (currentHeight * 0.6), false);
+
+      // Flor
+      if (this.progress >= 0.85) {
+        const bloom = Math.max(0, (this.progress - 0.85) / 0.15) * this.flowerProgress;
+        this.drawHead(headX, headY, bloom);
+      }
+    }
+
+    drawLeaf(x, y, isRight) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale((isRight ? 1 : -1) * this.sizeMult, this.sizeMult);
+      ctx.rotate(-Math.PI / 6);
+
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(30, -20, 60, -5);
+      ctx.quadraticCurveTo(30, 25, 0, 0);
+
+      ctx.fillStyle = this.isBackground ? "#183008" : "#2e5410";
+      ctx.fill();
+      ctx.restore();
+    }
+
+    drawHead(x, y, scale) {
+      if (scale <= 0) return;
+
+      ctx.save();
+      ctx.translate(x, y);
+
+      const radius = 68 * scale * this.sizeMult;
+
+      // Capas de pétalos
+      for (let layer = 0; layer < 3; layer++) {
+        const layerScale = 1 - (layer * 0.12);
+        const colors = this.isBackground
+          ? ["#b45309", "#d97706", "#f59e0b"]
+          : ["#d97706", "#f59e0b", "#fbbf24"];
+
+        for (let i = 0; i < this.numPetals; i++) {
+          const angle = (i * (2 * Math.PI / this.numPetals)) + (layer * 0.08);
+          ctx.save();
+          ctx.rotate(angle);
+
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.quadraticCurveTo(radius * 0.35, radius * 0.22 * layerScale, radius * layerScale, 0);
+          ctx.quadraticCurveTo(radius * 0.35, -radius * 0.22 * layerScale, 0, 0);
+
+          ctx.fillStyle = colors[layer];
+          ctx.shadowBlur = this.isBackground ? 2 : 6;
+          ctx.shadowColor = "rgba(0,0,0,0.5)";
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      // Centro
+      ctx.beginPath();
+      ctx.arc(0, 0, radius * 0.35, 0, Math.PI * 2);
+      ctx.fillStyle = "#3b1a03";
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(0, 0, radius * 0.28, 0, Math.PI * 2);
+      ctx.fillStyle = "#1c0b01";
+      ctx.fill();
+
+      ctx.restore();
+    }
+  }
+
+  // --- ELEMENTOS EN ESCENA ---
+  const fireflies = Array.from({ length: 60 }, () => new Firefly());
+
+  // Mezcla de flores (Fondo, Medio y Frente) para tupir el campo
+  const sunflowers = [
+    // Capa Trasera (más pequeñas y oscuras)
+    new Sunflower(0.12, 0.52, 10, 0.7, true),
+    new Sunflower(0.28, 0.45, 30, 0.75, true),
+    new Sunflower(0.44, 0.50, 15, 0.7, true),
+    new Sunflower(0.60, 0.46, 35, 0.75, true),
+    new Sunflower(0.76, 0.53, 5, 0.65, true),
+    new Sunflower(0.90, 0.48, 25, 0.7, true),
+
+    // Capa Media y Principal
+    new Sunflower(0.08, 0.38, 20, 0.95),
+    new Sunflower(0.22, 0.32, 0, 1.05),
+    new Sunflower(0.36, 0.35, 40, 1.0),
+    new Sunflower(0.50, 0.28, 12, 1.15),
+    new Sunflower(0.64, 0.33, 28, 1.0),
+    new Sunflower(0.78, 0.30, 8, 1.1),
+    new Sunflower(0.92, 0.36, 45, 0.95),
+
+    // Capa Frontal (Bajas para rellenar la base)
+    new Sunflower(0.17, 0.62, 50, 0.8),
+    new Sunflower(0.31, 0.58, 60, 0.85),
+    new Sunflower(0.57, 0.60, 55, 0.82),
+    new Sunflower(0.71, 0.57, 65, 0.85),
+    new Sunflower(0.85, 0.63, 48, 0.78)
+  ];
+
+  // --- BUCLE DE ANIMACIÓN ---
+  function animate() {
+    ctx.fillStyle = "#020204";
+    ctx.fillRect(0, 0, width, height);
+
+    // Suelo
+    ctx.fillStyle = "#060402";
+    ctx.beginPath();
+    ctx.ellipse(width / 2, height + 60, width * 0.8, 140, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Luciérnagas al fondo
+    fireflies.forEach(f => {
+      f.update();
+      f.draw();
+    });
+
+    // Dibujar todos los girasoles
+    sunflowers.forEach(s => {
+      s.update();
+      s.draw();
+    });
+
+    requestAnimationFrame(animate);
+  }
+
+  animate();
+</script>
+</body>
+</html>
